@@ -3,40 +3,70 @@
 ## 🎯 Objective
 Capture and analyze live network traffic to identify credentials or suspicious activity, then harden the server to prevent such leaks.
 
-**Tools Used:**  
-- Ubuntu Linux  
-- UFW (firewall)  
-- Fail2ban (brute-force protection)  
-- SSH (secure remote access)  
-- tcpdump / Wireshark (packet capture & analysis)  
+**Tools Used:**
+- Ubuntu Linux
+- UFW (firewall)
+- Fail2ban (brute-force protection)
+- SSH (secure remote access)
+- tcpdump / Wireshark (packet capture & analysis)
+- vsftpd, Apache, Telnet (for generating test traffic)
 
 ---
 
 ## 📝 Before State
-- UFW: `inactive`
-- Fail2ban: not installed / not running
-- FTP running (plaintext credentials possible)
+- Firewall (UFW): **inactive**
+- Fail2ban: **not installed**
+- SSH: **Root login allowed, password authentication enabled**
+- Open Ports: **22 (SSH), 80 (HTTP), 3306 (MySQL – exposed)**
+- Captured FTP/Telnet/HTTP traffic showed **plaintext usernames and passwords**
 
 ---
 
 ## 🔬 Actions Performed
-1. Installed and configured **fail2ban** (monitored SSH).  
-2. Enabled and configured **UFW** (firewall rules).  
-3. Installed and enabled **vsftpd** for testing plaintext FTP credentials.  
-4. Captured traffic with **tcpdump** before and after hardening.  
-5. Analyzed `.pcap` files in **Wireshark** to extract credentials.  
-6. Disabled FTP + blocked port 21 with UFW after testing.  
+1. Installed **tcpdump** and **tshark** for packet capture.
+2. Generated **FTP, Telnet, and HTTP test traffic** with credentials.
+3. Captured packets and analyzed in **Wireshark**:
+   - FTP → `USER` and `PASS` visible in plaintext.
+   - Telnet → credentials visible when following TCP stream.
+   - HTTP → `Authorization: Basic` headers revealed credentials (base64-decoded).
+4. Installed and configured **UFW** (firewall rules).
+5. Installed and configured **Fail2ban** to protect SSH.
+6. Hardened **SSH**:
+   - Disabled root login.
+   - Disabled password authentication.
+   - Enforced key-based login.
+7. Disabled plaintext services (FTP, Telnet) and blocked ports in UFW.
+8. Captured traffic again → **no plaintext credentials observed**.
 
 ---
 
 ## 📊 Findings
-- **Before Hardening:** FTP login credentials (`USER`, `PASS`) were captured in plaintext.  
-- **After Hardening:** FTP disabled & port 21 blocked → no credentials leaked.  
+- **Before Hardening:** Plaintext credentials (FTP, Telnet, HTTP Basic Auth) were captured.
+- **After Hardening:** Services disabled/blocked; only secure SSH allowed.  
+  No plaintext credentials visible in packet captures.
 
 ---
 
-## 📂 Project Files
-- `report/` → Detailed Word/PDF report  
-- `evidence/` → Captured traffic, extracted credentials  
-- `screenshots/` → Proof of firewall/fail2ban/tcpdump in action  
-- `applied_commands.sh` → All commands executed  
+## 🚀 How to Reproduce
+1. Install tools:
+   ```bash
+   sudo apt update
+   sudo apt install -y tcpdump tshark ufw fail2ban vsftpd apache2 telnetd ftp curl telnet
+   ```
+2. Run services (FTP, Telnet, HTTP) and generate test traffic.
+3. Capture traffic:
+   ```bash
+   sudo tcpdump -i ens33 -s 0 -w capture_before.pcap      'tcp port 21 or tcp port 23 or tcp port 80'
+   ```
+4. Analyze in Wireshark with filters:
+   - `ftp.request.command == "USER" || ftp.request.command == "PASS"`
+   - `telnet`
+   - `http.authorization`
+5. Apply hardening (disable FTP/Telnet, configure UFW + Fail2ban, SSH key auth).
+6. Capture again → confirm no credentials in plaintext.
+
+---
+
+## 📌 Author
+**Subhash Chandra Bose Vallapu**  
+Cybersecurity Enthusiast | Linux Hardening & Network Security
